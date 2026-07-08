@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SK하이닉스 투자 레포트</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;
+         background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
+         color:#e2e8f0; padding:24px; min-height:100vh; }
+  .wrap { max-width:1100px; margin:0 auto; }
+  header { text-align:center; margin-bottom:30px; }
+  header h1 { font-size:1.8rem; margin-bottom:6px; }
+  header .sub { color:#94a3b8; font-size:0.95rem; }
+  .action-box { text-align:center; background:#f39c12; color:white;
+    border-radius:18px; padding:28px; margin-bottom:24px; box-shadow:0 10px 40px rgba(0,0,0,0.3); }
+  .action-box .label { font-size:1.1rem; opacity:0.9; }
+  .action-box .action { font-size:3rem; font-weight:800; margin:8px 0; }
+  .action-box .score { font-size:0.95rem; opacity:0.9; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:24px; }
+  @media (max-width:700px) { .grid2 { grid-template-columns:1fr; } }
+  .card { background:#1e293b; border-radius:14px; padding:20px; }
+  .card h3 { color:#94a3b8; font-size:0.9rem; text-transform:uppercase; margin-bottom:14px; }
+  .price { font-size:2.4rem; font-weight:700; color:#38bdf8; }
+  .stat { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid #334155; font-size:0.93rem; }
+  .stat:last-child { border:0; }
+  .stat .v { font-weight:600; color:#f1f5f9; }
+  .pos { margin-top:10px; height:8px; background:#334155; border-radius:4px; overflow:hidden; }
+  .pos div { height:100%; background:linear-gradient(90deg,#10b981,#f59e0b,#ef4444);
+    width:59%; border-radius:4px; }
+  .chart-card { background:#1e293b; border-radius:14px; padding:20px; margin-bottom:24px; }
+  .chart-card h3 { color:#94a3b8; font-size:0.9rem; text-transform:uppercase; margin-bottom:14px; }
+  canvas { max-height:360px; }
+  .news-list { display:flex; flex-direction:column; gap:12px; }
+  .news-card { display:flex; gap:14px; background:#1e293b; border-radius:12px; padding:16px; }
+  .news-num { background:#3b82f6; color:white; width:28px; height:28px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0; }
+  .news-title { font-weight:600; font-size:1rem; margin-bottom:4px; }
+  .news-meta { color:#64748b; font-size:0.82rem; margin-bottom:8px; }
+  .news-desc { color:#cbd5e1; font-size:0.9rem; line-height:1.5; }
+  .news-link { color:#3b82f6; font-size:0.85rem; text-decoration:none; }
+  .news-link:hover { text-decoration:underline; }
+  .reasons { background:#1e293b; border-radius:12px; padding:18px; margin-top:18px; }
+  .reasons h3 { color:#94a3b8; font-size:0.9rem; margin-bottom:10px; }
+  .reasons ul { padding-left:20px; }
+  .reasons li { margin:6px 0; color:#cbd5e1; font-size:0.92rem; }
+  .empty { color:#64748b; text-align:center; padding:30px; }
+  footer { text-align:center; color:#475569; font-size:0.8rem; margin-top:30px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>SK하이닉스(066570) 투자 레포트</h1>
+    <div class="sub">기준일 2026-07-08 · 최근 3개월 데이터 · 기술 분석 기반</div>
+  </header>
+
+  <div class="action-box">
+    <div class="label">종합 추천</div>
+    <div class="action">관망 (보유 유지)</div>
+    <div class="score">신호 점수: +0 (BUY≥2 / SELL≤-2 / HOLD 그 외)</div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>현재 주가</h3>
+      <div class="price">2,076,000 원</div>
+      <div class="stat"><span>기간 최고</span><span class="v">2,919,000 원</span></div>
+      <div class="stat"><span>기간 최저</span><span class="v">886,000 원</span></div>
+      <div class="stat"><span>현재 위치</span><span class="v">59%</span></div>
+      <div class="pos"><div></div></div>
+    </div>
+    <div class="card">
+      <h3>기술 지표</h3>
+      <div class="stat"><span>MA20 (20일 이평선)</span><span class="v">2,482,300 원</span></div>
+      <div class="stat"><span>MA60 (60일 이평선)</span><span class="v">1,945,450 원</span></div>
+      <div class="stat"><span>RSI (14일)</span><span class="v">36.9</span></div>
+      <div class="reasons">
+        <h3>판단 근거</h3>
+        <ul><li>단기이평선이 장기이평선 위(골든크로스) - 상승 추세</li><li>현재가 2076000원이 MA20 2482300원 아래 - 단기 약세</li><li>RSI 36.9 - 중립 구간</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h3>주가 차트 (종가 + 이동평균선)</h3>
+    <canvas id="priceChart"></canvas>
+  </div>
+
+  <div class="chart-card">
+    <h3>거래량</h3>
+    <canvas id="volChart"></canvas>
+  </div>
+
+  <h3 style="color:#94a3b8;font-size:0.9rem;text-transform:uppercase;margin:24px 0 12px;">최신 뉴스 Top 0</h3>
+  <div class="news-list"><div class="empty">뉴스를 불러오지 못했습니다 (네이버 API 키 필요).</div></div>
+
+  <footer>
+    ⚠️ 본 레포트는 자동 생성된 참고용 자료이며, 실제 투자는 본인 판단으로 결정하세요.
+    데이터: Yahoo Finance · 네이버 뉴스
+  </footer>
+</div>
+
+<script>
+const dates = ["2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-10", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-16", "2026-04-17", "2026-04-20", "2026-04-21", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-27", "2026-04-28", "2026-04-29", "2026-04-30", "2026-05-04", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21", "2026-05-22", "2026-05-26", "2026-05-27", "2026-05-28", "2026-05-29", "2026-06-01", "2026-06-02", "2026-06-04", "2026-06-05", "2026-06-08", "2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12", "2026-06-15", "2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19", "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-29", "2026-06-30", "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-06", "2026-07-07", "2026-07-08"];
+const closes = [886000.0, 916000.0, 1033000.0, 998000.0, 1027000.0, 1040000.0, 1103000.0, 1136000.0, 1155000.0, 1128000.0, 1166000.0, 1224000.0, 1223000.0, 1225000.0, 1222000.0, 1292000.0, 1300000.0, 1293000.0, 1286000.0, 1447000.0, 1601000.0, 1654000.0, 1686000.0, 1880000.0, 1835000.0, 1976000.0, 1970000.0, 1819000.0, 1840000.0, 1745000.0, 1745000.0, 1940000.0, 1941000.0, 2052000.0, 2243000.0, 2289000.0, 2333000.0, 2363000.0, 2360000.0, 2298000.0, 2070000.0, 1911000.0, 2215000.0, 2048000.0, 2101000.0, 2150000.0, 2288000.0, 2382000.0, 2521000.0, 2685000.0, 2764000.0, 2919000.0, 2555000.0, 2621000.0, 2917000.0, 2673000.0, 2628000.0, 2650000.0, 2560000.0, 2187000.0, 2425000.0, 2343000.0, 2201000.0, 2076000.0];
+const ma20 = [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1155000.0, 1190750.0, 1227650.0, 1260300.0, 1304400.0, 1344800.0, 1391600.0, 1434950.0, 1469100.0, 1503350.0, 1534200.0, 1563150.0, 1598950.0, 1634850.0, 1676200.0, 1727250.0, 1777100.0, 1828750.0, 1882250.0, 1935950.0, 1978500.0, 2001950.0, 2014800.0, 2041250.0, 2049650.0, 2062950.0, 2071650.0, 2087550.0, 2115700.0, 2149750.0, 2196750.0, 2247700.0, 2296650.0, 2327350.0, 2355800.0, 2389500.0, 2408700.0, 2423450.0, 2437800.0, 2447800.0, 2442250.0, 2460000.0, 2481600.0, 2480900.0, 2482300.0];
+const ma60 = [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1858583.0, 1884233.0, 1908017.0, 1927483.0, 1945450.0];
+const volumes = [3100989, 3619929, 6709356, 5026817, 3134921, 2769753, 4754545, 4093703, 2901319, 3578235, 3748014, 3516960, 2894919, 5343871, 3127857, 4563073, 3002713, 3001208, 3342342, 5776641, 6631934, 5860618, 4278087, 7433039, 9160593, 7126921, 6040068, 7485233, 6481608, 4575855, 5535123, 5096690, 3135190, 4903591, 7545783, 6229499, 8518013, 5602897, 5837216, 3941067, 5778751, 6610833, 5878039, 151, 6625775, 5286416, 3872910, 3644469, 3980010, 5808765, 7478195, 5179795, 8050335, 7487916, 6790853, 7467492, 5217788, 5109213, 4277276, 7685914, 7984914, 4235360, 6351195, 7210017];
+
+new Chart(document.getElementById('priceChart'), {
+  type:'line',
+  data:{ labels:dates, datasets:[
+    { label:'종가', data:closes, borderColor:'#38bdf8', borderWidth:2, tension:0.3, pointRadius:0 },
+    { label:'MA20', data:ma20, borderColor:'#f59e0b', borderWidth:1.5, tension:0.3, pointRadius:0, borderDash:[5,5] },
+    { label:'MA60', data:ma60, borderColor:'#a78bfa', borderWidth:1.5, tension:0.3, pointRadius:0, borderDash:[5,5] }
+  ]},
+  options:{ responsive:true, plugins:{ legend:{ labels:{ color:'#94a3b8' } } },
+    scales:{ x:{ ticks:{ color:'#64748b', maxTicksLimit:8 } },
+             y:{ ticks:{ color:'#64748b' } } } }
+});
+
+new Chart(document.getElementById('volChart'), {
+  type:'bar',
+  data:{ labels:dates, datasets:[{ label:'거래량', data:volumes, backgroundColor:'#3b82f680' }] },
+  options:{ responsive:true, plugins:{ legend:{ display:false } },
+    scales:{ x:{ ticks:{ color:'#64748b', maxTicksLimit:8 } },
+             y:{ ticks:{ color:'#64748b' } } } }
+});
+</script>
+</body>
+</html>
