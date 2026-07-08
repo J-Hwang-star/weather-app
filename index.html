@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>날씨 앱</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: rgba(255,255,255,0.95);
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  h1 { font-size: 1.6rem; margin-bottom: 20px; color: #2c3e50; }
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+  }
+  input[type="text"] {
+    flex: 1;
+    padding: 12px 14px;
+    font-size: 1rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    background: white;
+  }
+  input[type="text"]:focus { outline: none; border-color: #667eea; }
+  button {
+    padding: 12px 22px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button:hover { opacity: 0.9; }
+  .current {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .current .temp { font-size: 3rem; font-weight: 700; }
+  .current .desc { font-size: 1.2rem; opacity: 0.9; margin-top: 5px; }
+  .current .meta { font-size: 0.95rem; opacity: 0.85; margin-top: 8px; }
+  .current .emoji { font-size: 4rem; }
+  .current .feels { font-size: 0.9rem; opacity: 0.85; margin-top: 4px; }
+  .sun-bar {
+    display: flex;
+    justify-content: space-around;
+    background: #f7f8fc;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 25px;
+    font-size: 0.9rem;
+    color: #555;
+  }
+  .sun-bar .item { text-align: center; }
+  .sun-bar .label { color: #888; font-size: 0.8rem; margin-bottom: 3px; }
+  .sun-bar .value { font-weight: 600; color: #2c3e50; }
+  .sun-bar .emoji { font-size: 1.2rem; }
+  .section-title {
+    font-size: 1.1rem;
+    color: #2c3e50;
+    margin: 0 0 12px 0;
+    font-weight: 600;
+  }
+  .hourly-wrap {
+    margin-bottom: 25px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+  }
+  .hourly {
+    display: flex;
+    gap: 10px;
+    min-width: max-content;
+  }
+  .hour {
+    background: #f7f8fc;
+    border-radius: 12px;
+    padding: 12px 10px;
+    text-align: center;
+    min-width: 70px;
+    font-size: 0.85rem;
+  }
+  .hour .time { font-weight: 600; color: #2c3e50; margin-bottom: 6px; }
+  .hour .emoji { font-size: 1.8rem; margin: 4px 0; }
+  .hour .temp { color: #555; font-weight: 600; }
+  .hour .rain { color: #3498db; font-size: 0.78rem; margin-top: 2px; }
+  .forecast { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+  .day {
+    background: #f7f8fc;
+    border-radius: 12px;
+    padding: 12px 6px;
+    text-align: center;
+    font-size: 0.85rem;
+  }
+  .day .date { font-weight: 600; color: #2c3e50; margin-bottom: 6px; }
+  .day .emoji { font-size: 1.8rem; margin: 4px 0; }
+  .day .temps { color: #555; }
+  .day .high { color: #e74c3c; font-weight: 600; }
+  .day .low { color: #3498db; font-weight: 600; }
+  .loading { text-align: center; padding: 40px; color: #888; }
+  .error { color: #e74c3c; padding: 15px; background: #fdeaea; border-radius: 10px; }
+  @media (max-width: 600px) {
+    .forecast { grid-template-columns: repeat(4, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>날씨 예보</h1>
+  <div class="controls">
+    <input type="text" id="city" placeholder="도시명 입력 (예: 청주, 서울, 부산)" value="청주">
+    <button id="btn">검색</button>
+  </div>
+  <div id="content"><div class="loading">불러오는 중...</div></div>
+</div>
+
+<script>
+const WMO = {
+  0: ["맑음", "☀️"], 1: ["대체로 맑음", "🌤️"], 2: ["부분적 흐림", "⛅"], 3: ["흐림", "☁️"],
+  45: ["안개", "🌫️"], 48: ["결빙 안개", "🌫️"],
+  51: ["약한 이슬비", "🌦️"], 53: ["이슬비", "🌦️"], 55: ["강한 이슬비", "🌦️"],
+  61: ["약한 비", "🌧️"], 63: ["비", "🌧️"], 65: ["강한 비", "🌧️"],
+  71: ["약한 눈", "🌨️"], 73: ["눈", "❄️"], 75: ["강한 눈", "❄️"],
+  80: ["약한 소나기", "🌦️"], 81: ["소나기", "🌦️"], 82: ["강한 소나기", "🌦️"],
+  95: ["천둥번개", "⛈️"], 96: ["천둥번개+우박", "⛈️"], 99: ["심한 천둥번개+우박", "⛈️"],
+};
+
+// 한국어 도시명 -> 영문 매핑 (Geocoding API가 한국어를 잘 못 찾을 때 대비)
+const CITY_MAP = {
+  "서울": "Seoul", "부산": "Busan", "대구": "Daegu", "인천": "Incheon",
+  "광주": "Gwangju", "대전": "Daejeon", "울산": "Ulsan", "수원": "Suwon",
+  "제주": "Jeju", "청주": "Cheongju", "전주": "Jeonju",
+};
+
+async function getCoords(city) {
+  const q = CITY_MAP[city] || city;
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=ko`;
+  const r = await fetch(url);
+  const data = await r.json();
+  if (!data.results) return null;
+  return data.results[0];
+}
+
+async function getWeather(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation` +
+    `&hourly=weather_code,temperature_2m,precipitation_probability` +
+    `&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max` +
+    `&timezone=Asia/Seoul&forecast_days=7`;
+  const r = await fetch(url);
+  return r.json();
+}
+
+function formatDate(s) {
+  const d = new Date(s);
+  const days = ["일", "월", "화", "수", "목", "금", "토"];
+  return `${d.getMonth()+1}/${d.getDate()} ${days[d.getDay()]}`;
+}
+
+function formatHour(iso) {
+  const d = new Date(iso);
+  const h = d.getHours();
+  return (h === 0 ? "0시" : `${h}시`);
+}
+
+async function load() {
+  const city = document.getElementById("city").value.trim();
+  if (!city) return;
+  const content = document.getElementById("content");
+  content.innerHTML = '<div class="loading">불러오는 중...</div>';
+
+  try {
+    const c = await getCoords(city);
+    if (!c) { content.innerHTML = '<div class="error">도시를 찾을 수 없습니다.</div>'; return; }
+    const w = await getWeather(c.latitude, c.longitude);
+    const cur = w.current;
+    const [cdesc, cemoji] = WMO[cur.weather_code] || ["알 수 없음", "❓"];
+
+    // 현재 날씨
+    let html = `
+      <div class="current">
+        <div>
+          <div class="desc">${c.name} · ${cdesc}</div>
+          <div class="temp">${cur.temperature_2m}°C</div>
+          <div class="feels">체감 ${cur.apparent_temperature}°C · 강수 ${cur.precipitation ?? 0} mm</div>
+          <div class="meta">습도 ${cur.relative_humidity_2m}% · 풍속 ${cur.wind_speed_10m} km/h</div>
+        </div>
+        <div class="emoji">${cemoji}</div>
+      </div>`;
+
+    // 일출/일몰
+    const sr = w.daily.sunrise[0];
+    const ss = w.daily.sunset[0];
+    html += `
+      <div class="sun-bar">
+        <div class="item"><div class="emoji">🌅</div><div class="label">일출</div><div class="value">${sr.slice(11,16)}</div></div>
+        <div class="item"><div class="emoji">🌇</div><div class="label">일몰</div><div class="value">${ss.slice(11,16)}</div></div>
+        <div class="item"><div class="emoji">💧</div><div class="label">오늘 강수확률</div><div class="value">${w.daily.precipitation_probability_max?.[0] ?? 0}%</div></div>
+      </div>`;
+
+    // 24시간 예보 (현재 시간부터 24시간)
+    html += `<div class="hourly-wrap"><div class="section-title">24시간 예보</div><div class="hourly">`;
+    const nowIdx = w.hourly.time.findIndex(t => new Date(t) >= new Date(cur.time));
+    const startIdx = nowIdx > 0 ? nowIdx : 0;
+    const endIdx = Math.min(startIdx + 24, w.hourly.time.length);
+    for (let i = startIdx; i < endIdx; i++) {
+      const [desc, emoji] = WMO[w.hourly.weather_code[i]] || ["알 수 없음", "❓"];
+      const temp = w.hourly.temperature_2m[i];
+      const rain = w.hourly.precipitation_probability ? w.hourly.precipitation_probability[i] : null;
+      html += `
+        <div class="hour">
+          <div class="time">${formatHour(w.hourly.time[i])}</div>
+          <div class="emoji">${emoji}</div>
+          <div class="temp">${temp}°</div>
+          ${rain != null ? `<div class="rain">${rain}%</div>` : ""}
+        </div>`;
+    }
+    html += `</div></div>`;
+
+    // 일주일(7일) 예보
+    html += `<div class="section-title">일주일 예보</div><div class="forecast">`;
+    w.daily.time.forEach((t, i) => {
+      const [desc, emoji] = WMO[w.daily.weather_code[i]] || ["알 수 없음", "❓"];
+      const rain = w.daily.precipitation_probability_max?.[i] ?? 0;
+      html += `
+        <div class="day">
+          <div class="date">${formatDate(t)}</div>
+          <div class="emoji">${emoji}</div>
+          <div class="desc">${desc}</div>
+          <div class="temps">
+            <span class="high">${w.daily.temperature_2m_max[i]}°</span>
+            <span class="low">${w.daily.temperature_2m_min[i]}°</span>
+          </div>
+          <div class="rain">${rain}%</div>
+        </div>`;
+    });
+    html += "</div>";
+    content.innerHTML = html;
+  } catch (e) {
+    content.innerHTML = '<div class="error">오류: ' + e.message + '</div>';
+  }
+}
+
+document.getElementById("btn").addEventListener("click", load);
+document.getElementById("city").addEventListener("keydown", e => {
+  if (e.key === "Enter") load();
+});
+load();
+</script>
+</body>
+</html>
