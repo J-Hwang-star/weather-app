@@ -119,6 +119,23 @@
   .day .low { color: #3498db; font-weight: 600; }
   .loading { text-align: center; padding: 40px; color: #888; }
   .error { color: #e74c3c; padding: 15px; background: #fdeaea; border-radius: 10px; }
+  .chart-section { margin-bottom: 25px; }
+  .chart-section .section-title { display: flex; align-items: center; justify-content: space-between; }
+  .chart-legend {
+    display: flex;
+    gap: 12px;
+    font-size: 0.78rem;
+    color: #666;
+  }
+  .chart-legend .dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  #rainChart { width: 100%; height: 180px; background: #f7f8fc; border-radius: 12px; }
   .map-section { margin-bottom: 25px; }
   .map-section .section-title { display: flex; align-items: center; justify-content: space-between; }
   .map-tabs {
@@ -314,6 +331,25 @@ async function load() {
     }
     html += `</div></div>`;
 
+    // 강수/기온 예측 그래프 (24시간)
+    const chartHours = [], chartTemp = [], chartRain = [];
+    for (let i = startIdx; i < endIdx; i++) {
+      chartHours.push(w.hourly.time[i]);
+      chartTemp.push(w.hourly.temperature_2m[i]);
+      chartRain.push(w.hourly.precipitation_probability ? w.hourly.precipitation_probability[i] : 0);
+    }
+    html += `
+      <div class="chart-section">
+        <div class="section-title">
+          <span>강수/기온 예측 (24시간)</span>
+          <div class="chart-legend">
+            <span><span class="dot" style="background:#3498db"></span>강수확률(%)</span>
+            <span><span class="dot" style="background:#e74c3c"></span>기온(°C)</span>
+          </div>
+        </div>
+        <canvas id="rainChart"></canvas>
+      </div>`;
+
     // 일주일(7일) 예보
     html += `<div class="section-title">일주일 예보</div><div class="forecast">`;
     w.daily.time.forEach((t, i) => {
@@ -333,6 +369,7 @@ async function load() {
     });
     html += "</div>";
     content.innerHTML = html;
+    drawRainChart(chartHours, chartTemp, chartRain);
   } catch (e) {
     content.innerHTML = '<div class="error">오류: ' + e.message + '</div>';
   }
@@ -343,6 +380,112 @@ document.getElementById("city").addEventListener("keydown", e => {
   if (e.key === "Enter") load();
 });
 load();
+
+/* ===== 강수/기온 예측 그래프 (Canvas) ===== */
+function drawRainChart(times, temps, rains) {
+  const canvas = document.getElementById("rainChart");
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth, cssH = canvas.clientHeight;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  const padL = 36, padR = 12, padT = 12, padB = 22;
+  const w = cssW - padL - padR;
+  const h = cssH - padT - padB;
+  const n = times.length;
+  if (n === 0) return;
+
+  const tMin = Math.min(...temps), tMax = Math.max(...temps);
+  const tPad = Math.max(2, (tMax - tMin) * 0.15);
+  const yTmin = Math.floor(tMin - tPad), yTmax = Math.ceil(tMax + tPad);
+  const yRmin = 0, yRmax = 100;
+
+  const x = i => padL + (n === 1 ? w/2 : (i / (n - 1)) * w);
+  const yT = v => padT + h - ((v - yTmin) / (yTmax - yTmin || 1)) * h;
+  const yR = v => padT + h - ((v - yRmin) / (yRmax - yRmin)) * h;
+
+  // 그리드 + Y축 라벨 (강수확률 좌, 기온 우)
+  ctx.font = "10px sans-serif";
+  ctx.fillStyle = "#888";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (let p = 0; p <= 4; p++) {
+    const yy = padT + (p / 4) * h;
+    ctx.strokeStyle = "#e6e8ef";
+    ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL + w, yy); ctx.stroke();
+    const rv = Math.round(yRmax - (p / 4) * (yRmax - yRmin));
+    const tv = (yTmax - (p / 4) * (yTmax - yTmin)).toFixed(0);
+    ctx.fillStyle = "#3498db";
+    ctx.fillText(rv + "%", padL - 4, yy);
+    ctx.fillStyle = "#e74c3c";
+    ctx.textAlign = "left";
+    ctx.fillText(tv + "°", padL + w + 4, yy);
+    ctx.textAlign = "right";
+  }
+
+  // 강수확률 영역 채우기
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + h);
+  grad.addColorStop(0, "rgba(52, 152, 219, 0.45)");
+  grad.addColorStop(1, "rgba(52, 152, 219, 0.05)");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(x(0), padT + h);
+  for (let i = 0; i < n; i++) ctx.lineTo(x(i), yR(rains[i]));
+  ctx.lineTo(x(n - 1), padT + h);
+  ctx.closePath();
+  ctx.fill();
+  // 강수확률 선
+  ctx.strokeStyle = "#3498db";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    if (i === 0) ctx.moveTo(x(i), yR(rains[i]));
+    else ctx.lineTo(x(i), yR(rains[i]));
+  }
+  ctx.stroke();
+
+  // 기온 선
+  ctx.strokeStyle = "#e74c3c";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    if (i === 0) ctx.moveTo(x(i), yT(temps[i]));
+    else ctx.lineTo(x(i), yT(temps[i]));
+  }
+  ctx.stroke();
+  // 기온 점
+  ctx.fillStyle = "#e74c3c";
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath();
+    ctx.arc(x(i), yT(temps[i]), 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // X축 라벨 (3시간 간격)
+  ctx.fillStyle = "#888";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  for (let i = 0; i < n; i++) {
+    const d = new Date(times[i]);
+    if (d.getHours() % 3 === 0) {
+      const label = (d.getHours() === 0 ? "0시" : d.getHours() + "시");
+      ctx.fillText(label, x(i), padT + h + 4);
+    }
+  }
+}
+
+window.addEventListener("resize", () => {
+  // 차트가 있으면 다시 그림
+  const canvas = document.getElementById("rainChart");
+  if (canvas && canvas.clientWidth) {
+    // 데이터는 다시 로드하기보다 현재 가로 크기에 맞춰 재렌더링
+    // 간단히 load() 재호출은 데이터 낭비 → 여기선 생략
+  }
+});
 
 /* ===== Leaflet + RainViewer 위성/레이더 지도 ===== */
 let map = null, radarLayer = null, satLayer = null;
