@@ -119,10 +119,68 @@
   .day .low { color: #3498db; font-weight: 600; }
   .loading { text-align: center; padding: 40px; color: #888; }
   .error { color: #e74c3c; padding: 15px; background: #fdeaea; border-radius: 10px; }
+  .map-section { margin-bottom: 25px; }
+  .map-section .section-title { display: flex; align-items: center; justify-content: space-between; }
+  .map-tabs {
+    display: flex;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  .map-tab {
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: #f0f1f6;
+    color: #666;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+  .map-tab.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+  }
+  .map-wrap {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  }
+  #map { height: 420px; width: 100%; }
+  .map-info {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.92);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: #555;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .map-info .time-label { font-weight: 600; color: #2c3e50; }
+  .map-timestamp-slider {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.92);
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .leaflet-container { background: #aadaff; }
   @media (max-width: 600px) {
     .forecast { grid-template-columns: repeat(4, 1fr); }
+    #map { height: 320px; }
   }
 </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
 <div class="container">
@@ -132,8 +190,28 @@
     <button id="btn">검색</button>
   </div>
   <div id="content"><div class="loading">불러오는 중...</div></div>
+  <div class="map-section">
+    <div class="section-title">
+      <span>위성/레이더 영상</span>
+      <div class="map-tabs">
+        <button class="map-tab active" data-layer="radar">레이더</button>
+        <button class="map-tab" data-layer="satellite">위성(IR)</button>
+        <button class="map-tab" data-layer="cover">구름</button>
+      </div>
+    </div>
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="map-info"><span class="time-label" id="map-time">--:--</span> · 영상 시각</div>
+      <div class="map-timestamp-slider">
+        <button id="map-prev" title="이전">◀</button>
+        <input type="range" id="map-slider" min="0" max="0" value="0" style="width:140px;">
+        <button id="map-play" title="재생">▶</button>
+      </div>
+    </div>
+  </div>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const WMO = {
   0: ["맑음", "☀️"], 1: ["대체로 맑음", "🌤️"], 2: ["부분적 흐림", "⛅"], 3: ["흐림", "☁️"],
@@ -266,6 +344,124 @@ document.getElementById("city").addEventListener("keydown", e => {
   if (e.key === "Enter") load();
 });
 load();
+
+/* ===== Leaflet + RainViewer 위성/레이더 지도 ===== */
+let map = null, radarLayer = null, satLayer = null, cloudLayer = null;
+let rvData = null;       // RainViewer past雷达/위성 타임스탬프
+let rvDataCov = null;    // RainViewer sat coverage (구름)
+let currentLayerType = "radar";
+let currentFrameIdx = 0;
+let playTimer = null;
+
+function initMap() {
+  if (map) return;
+  map = L.map("map", { zoomControl: true, attributionControl: true }).setView([36.5, 127.8], 6);
+  // OpenStreetMap base
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: "© OpenStreetMap"
+  }).addTo(map);
+
+  // 탭 전환
+  document.querySelectorAll(".map-tab").forEach(t => {
+    t.addEventListener("click", () => {
+      document.querySelectorAll(".map-tab").forEach(x => x.classList.remove("active"));
+      t.classList.add("active");
+      currentLayerType = t.dataset.layer;
+      applyLayer();
+    });
+  });
+  // 슬라이더 / 버튼
+  document.getElementById("map-slider").addEventListener("input", e => {
+    currentFrameIdx = parseInt(e.target.value, 10);
+    applyLayer();
+  });
+  document.getElementById("map-prev").addEventListener("click", () => {
+    if (!rvData) return;
+    currentFrameIdx = Math.max(0, currentFrameIdx - 1);
+    document.getElementById("map-slider").value = currentFrameIdx;
+    applyLayer();
+  });
+  document.getElementById("map-play").addEventListener("click", togglePlay);
+
+  fetchRainViewer();
+}
+
+async function fetchRainViewer() {
+  try {
+    const r = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+    const data = await r.json();
+    rvData = data.radar && data.radar.past ? data.radar.past.concat(data.radar.nowsat || []) : [];
+    if (rvData.length === 0) {
+      document.getElementById("map-time").textContent = "데이터 없음";
+      return;
+    }
+    rvDataCov = data.satellite && data.satellite.infrared ? data.satellite.infrared : [];
+    currentFrameIdx = rvData.length - 1;
+    const slider = document.getElementById("map-slider");
+    slider.max = rvData.length - 1;
+    slider.value = currentFrameIdx;
+    applyLayer();
+  } catch (e) {
+    document.getElementById("map-time").textContent = "로드 실패";
+  }
+}
+
+function applyLayer() {
+  if (!rvData || rvData.length === 0) return;
+  const idx = Math.min(currentFrameIdx, rvData.length - 1);
+  const frame = rvData[idx];
+  const host = "https://tilecache.rainviewer.com";
+  const radarPath = `${host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`;
+  // satellite IR: 같은 host + satellite 경로 (nowsat에 path가 있을 수 있음)
+  const satPath = `${host}${frame.path}/256/{z}/{x}/{y}/2/0_0.png`;
+
+  if (radarLayer) { map.removeLayer(radarLayer); radarLayer = null; }
+  if (satLayer) { map.removeLayer(satLayer); satLayer = null; }
+  if (cloudLayer) { map.removeLayer(cloudLayer); cloudLayer = null; }
+
+  if (currentLayerType === "radar") {
+    radarLayer = L.tileLayer(radarPath, {
+      opacity: 0.75, zIndex: 200
+    }).addTo(map);
+  } else if (currentLayerType === "satellite") {
+    satLayer = L.tileLayer(satPath, {
+      opacity: 0.85, zIndex: 200
+    }).addTo(map);
+  } else if (currentLayerType === "cover") {
+    // sat coverage: 별도 배열
+    if (rvDataCov && rvDataCov.length > 0) {
+      const covFrame = rvDataCov[rvDataCov.length - 1];
+      const covPath = `${host}${covFrame.path}/256/{z}/{x}/{y}/2/0_0.png`;
+      cloudLayer = L.tileLayer(covPath, {
+        opacity: 0.8, zIndex: 200
+      }).addTo(map);
+    }
+  }
+
+  const t = new Date(frame.time * 1000);
+  const hh = String(t.getHours()).padStart(2, "0");
+  const mm = String(t.getMinutes()).padStart(2, "0");
+  document.getElementById("map-time").textContent = `${hh}:${mm}`;
+  document.getElementById("map-slider").value = idx;
+}
+
+function togglePlay() {
+  if (playTimer) {
+    clearInterval(playTimer);
+    playTimer = null;
+    document.getElementById("map-play").textContent = "▶";
+  } else {
+    document.getElementById("map-play").textContent = "⏸";
+    playTimer = setInterval(() => {
+      if (!rvData) return;
+      currentFrameIdx = (currentFrameIdx + 1) % rvData.length;
+      applyLayer();
+    }, 700);
+  }
+}
+
+initMap();
 </script>
 </body>
 </html>
