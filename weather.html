@@ -196,7 +196,6 @@
       <div class="map-tabs">
         <button class="map-tab active" data-layer="radar">레이더</button>
         <button class="map-tab" data-layer="satellite">위성(IR)</button>
-        <button class="map-tab" data-layer="cover">구름</button>
       </div>
     </div>
     <div class="map-wrap">
@@ -346,9 +345,10 @@ document.getElementById("city").addEventListener("keydown", e => {
 load();
 
 /* ===== Leaflet + RainViewer 위성/레이더 지도 ===== */
-let map = null, radarLayer = null, satLayer = null, cloudLayer = null;
-let rvData = null;       // RainViewer past雷达/위성 타임스탬프
-let rvDataCov = null;    // RainViewer sat coverage (구름)
+let map = null, radarLayer = null, satLayer = null;
+let rvData = null;       // RainViewer radar.past
+let rvSat = null;        // RainViewer satellite.infrared (위성 IR)
+let rvHost = "https://tilecache.rainviewer.com";
 let currentLayerType = "radar";
 let currentFrameIdx = 0;
 let playTimer = null;
@@ -368,6 +368,13 @@ function initMap() {
       document.querySelectorAll(".map-tab").forEach(x => x.classList.remove("active"));
       t.classList.add("active");
       currentLayerType = t.dataset.layer;
+      const frames = (currentLayerType === "satellite") ? rvSat : rvData;
+      if (frames && frames.length > 0) {
+        currentFrameIdx = frames.length - 1;
+        const slider = document.getElementById("map-slider");
+        slider.max = frames.length - 1;
+        slider.value = currentFrameIdx;
+      }
       applyLayer();
     });
   });
@@ -391,15 +398,24 @@ async function fetchRainViewer() {
   try {
     const r = await fetch("https://api.rainviewer.com/public/weather-maps.json");
     const data = await r.json();
-    rvData = data.radar && data.radar.past ? data.radar.past.concat(data.radar.nowsat || []) : [];
-    if (rvData.length === 0) {
+    if (data.host) rvHost = data.host;
+    rvData = (data.radar && data.radar.past) ? data.radar.past.slice() : [];
+    if (data.radar && data.radar.nowcast) rvData = rvData.concat(data.radar.nowcast);
+    rvSat = (data.satellite && data.satellite.infrared) ? data.satellite.infrared : [];
+    if (rvData.length === 0 && rvSat.length === 0) {
       document.getElementById("map-time").textContent = "데이터 없음";
       return;
     }
-    rvDataCov = data.satellite && data.satellite.infrared ? data.satellite.infrared : [];
-    currentFrameIdx = rvData.length - 1;
+    // 레이더 우선, 없으면 위성으로 폴백
+    currentLayerType = rvData.length > 0 ? "radar" : "satellite";
+    if (currentLayerType === "satellite") {
+      document.querySelectorAll(".map-tab").forEach(t => {
+        t.classList.toggle("active", t.dataset.layer === "satellite");
+      });
+    }
+    currentFrameIdx = (currentLayerType === "radar" ? rvData : rvSat).length - 1;
     const slider = document.getElementById("map-slider");
-    slider.max = rvData.length - 1;
+    slider.max = (currentLayerType === "radar" ? rvData : rvSat).length - 1;
     slider.value = currentFrameIdx;
     applyLayer();
   } catch (e) {
@@ -408,35 +424,35 @@ async function fetchRainViewer() {
 }
 
 function applyLayer() {
-  if (!rvData || rvData.length === 0) return;
-  const idx = Math.min(currentFrameIdx, rvData.length - 1);
-  const frame = rvData[idx];
-  const host = "https://tilecache.rainviewer.com";
-  const radarPath = `${host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`;
-  // satellite IR: 같은 host + satellite 경로 (nowsat에 path가 있을 수 있음)
-  const satPath = `${host}${frame.path}/256/{z}/{x}/{y}/2/0_0.png`;
-
+  if (!map) return;
   if (radarLayer) { map.removeLayer(radarLayer); radarLayer = null; }
   if (satLayer) { map.removeLayer(satLayer); satLayer = null; }
-  if (cloudLayer) { map.removeLayer(cloudLayer); cloudLayer = null; }
 
-  if (currentLayerType === "radar") {
-    radarLayer = L.tileLayer(radarPath, {
-      opacity: 0.75, zIndex: 200
-    }).addTo(map);
-  } else if (currentLayerType === "satellite") {
-    satLayer = L.tileLayer(satPath, {
-      opacity: 0.85, zIndex: 200
-    }).addTo(map);
-  } else if (currentLayerType === "cover") {
-    // sat coverage: 별도 배열
-    if (rvDataCov && rvDataCov.length > 0) {
-      const covFrame = rvDataCov[rvDataCov.length - 1];
-      const covPath = `${host}${covFrame.path}/256/{z}/{x}/{y}/2/0_0.png`;
-      cloudLayer = L.tileLayer(covPath, {
-        opacity: 0.8, zIndex: 200
-      }).addTo(map);
+  let frames, isSat = (currentLayerType === "satellite");
+  if (isSat) {
+    frames = rvSat;
+    if (!frames || frames.length === 0) {
+      document.getElementById("map-time").textContent = "위성 데이터 없음";
+      return;
     }
+  } else {
+    frames = rvData;
+    if (!frames || frames.length === 0) {
+      document.getElementById("map-time").textContent = "레이더 데이터 없음";
+      return;
+    }
+  }
+  const idx = Math.min(currentFrameIdx, frames.length - 1);
+  const frame = frames[idx];
+  // color/scheme: radar=1_1 ( reflectivity, past=2 ), satellite IR=0_0
+  const scheme = isSat ? "0_0" : "1_1";
+  const size = 256;
+  const tileUrl = `${rvHost}${frame.path}/${size}/{z}/{x}/{y}/2/${scheme}.png`;
+
+  if (isSat) {
+    satLayer = L.tileLayer(tileUrl, { opacity: 0.85, zIndex: 200 }).addTo(map);
+  } else {
+    radarLayer = L.tileLayer(tileUrl, { opacity: 0.75, zIndex: 200 }).addTo(map);
   }
 
   const t = new Date(frame.time * 1000);
@@ -454,8 +470,9 @@ function togglePlay() {
   } else {
     document.getElementById("map-play").textContent = "⏸";
     playTimer = setInterval(() => {
-      if (!rvData) return;
-      currentFrameIdx = (currentFrameIdx + 1) % rvData.length;
+      const frames = (currentLayerType === "satellite") ? rvSat : rvData;
+      if (!frames || frames.length === 0) return;
+      currentFrameIdx = (currentFrameIdx + 1) % frames.length;
       applyLayer();
     }, 700);
   }
