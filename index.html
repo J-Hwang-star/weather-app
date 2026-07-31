@@ -162,25 +162,6 @@
     font-size: 0.88rem;
   }
   .map-section .section-title { display: flex; align-items: center; justify-content: space-between; }
-  .map-tabs {
-    display: flex;
-    gap: 6px;
-    font-size: 0.8rem;
-    font-weight: 500;
-  }
-  .map-tab {
-    padding: 4px 12px;
-    border-radius: 20px;
-    background: #f0f1f6;
-    color: #666;
-    cursor: pointer;
-    border: none;
-    transition: all 0.15s;
-  }
-  .map-tab.active {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
-  }
   .map-wrap {
     position: relative;
     border-radius: 12px;
@@ -233,11 +214,7 @@
   <div id="content"><div class="loading">불러오는 중...</div></div>
   <div class="map-section">
     <div class="section-title">
-      <span>위성/레이더 영상</span>
-      <div class="map-tabs">
-        <button class="map-tab active" data-layer="radar">레이더</button>
-        <button class="map-tab" data-layer="satellite">위성(IR)</button>
-      </div>
+      <span>레이더 영상</span>
     </div>
     <div class="map-wrap">
       <div id="map"></div>
@@ -585,11 +562,9 @@ window.addEventListener("resize", () => {
 });
 
 /* ===== Leaflet + RainViewer 위성/레이더 지도 ===== */
-let map = null, radarLayer = null, satLayer = null;
+let map = null, radarLayer = null;
 let rvData = null;       // RainViewer radar.past
-let rvSat = null;        // RainViewer satellite.infrared (위성 IR)
 let rvHost = "https://tilecache.rainviewer.com";
-let currentLayerType = "radar";
 let currentFrameIdx = 0;
 let playTimer = null;
 
@@ -602,22 +577,6 @@ function initMap() {
     attribution: "© OpenStreetMap"
   }).addTo(map);
 
-  // 탭 전환
-  document.querySelectorAll(".map-tab").forEach(t => {
-    t.addEventListener("click", () => {
-      document.querySelectorAll(".map-tab").forEach(x => x.classList.remove("active"));
-      t.classList.add("active");
-      currentLayerType = t.dataset.layer;
-      const frames = (currentLayerType === "satellite") ? rvSat : rvData;
-      if (frames && frames.length > 0) {
-        currentFrameIdx = frames.length - 1;
-        const slider = document.getElementById("map-slider");
-        slider.max = frames.length - 1;
-        slider.value = currentFrameIdx;
-      }
-      applyLayer();
-    });
-  });
   // 슬라이더 / 버튼
   document.getElementById("map-slider").addEventListener("input", e => {
     currentFrameIdx = parseInt(e.target.value, 10);
@@ -641,21 +600,13 @@ async function fetchRainViewer() {
     if (data.host) rvHost = data.host;
     rvData = (data.radar && data.radar.past) ? data.radar.past.slice() : [];
     if (data.radar && data.radar.nowcast) rvData = rvData.concat(data.radar.nowcast);
-    rvSat = (data.satellite && data.satellite.infrared) ? data.satellite.infrared : [];
-    if (rvData.length === 0 && rvSat.length === 0) {
+    if (rvData.length === 0) {
       document.getElementById("map-time").textContent = "데이터 없음";
       return;
     }
-    // 레이더 우선, 없으면 위성으로 폴백
-    currentLayerType = rvData.length > 0 ? "radar" : "satellite";
-    if (currentLayerType === "satellite") {
-      document.querySelectorAll(".map-tab").forEach(t => {
-        t.classList.toggle("active", t.dataset.layer === "satellite");
-      });
-    }
-    currentFrameIdx = (currentLayerType === "radar" ? rvData : rvSat).length - 1;
+    currentFrameIdx = rvData.length - 1;
     const slider = document.getElementById("map-slider");
-    slider.max = (currentLayerType === "radar" ? rvData : rvSat).length - 1;
+    slider.max = rvData.length - 1;
     slider.value = currentFrameIdx;
     applyLayer();
   } catch (e) {
@@ -666,34 +617,19 @@ async function fetchRainViewer() {
 function applyLayer() {
   if (!map) return;
   if (radarLayer) { map.removeLayer(radarLayer); radarLayer = null; }
-  if (satLayer) { map.removeLayer(satLayer); satLayer = null; }
 
-  let frames, isSat = (currentLayerType === "satellite");
-  if (isSat) {
-    frames = rvSat;
-    if (!frames || frames.length === 0) {
-      document.getElementById("map-time").textContent = "위성 데이터 없음";
-      return;
-    }
-  } else {
-    frames = rvData;
-    if (!frames || frames.length === 0) {
-      document.getElementById("map-time").textContent = "레이더 데이터 없음";
-      return;
-    }
+  const frames = rvData;
+  if (!frames || frames.length === 0) {
+    document.getElementById("map-time").textContent = "레이더 데이터 없음";
+    return;
   }
   const idx = Math.min(currentFrameIdx, frames.length - 1);
   const frame = frames[idx];
-  // color/scheme: radar=1_1 ( reflectivity, past=2 ), satellite IR=0_0
-  const scheme = isSat ? "0_0" : "1_1";
+  // color/scheme: radar=1_1 (reflectivity, past=2)
+  const scheme = "1_1";
   const size = 256;
   const tileUrl = `${rvHost}${frame.path}/${size}/{z}/{x}/{y}/2/${scheme}.png`;
-
-  if (isSat) {
-    satLayer = L.tileLayer(tileUrl, { opacity: 0.85, zIndex: 200 }).addTo(map);
-  } else {
-    radarLayer = L.tileLayer(tileUrl, { opacity: 0.75, zIndex: 200 }).addTo(map);
-  }
+  radarLayer = L.tileLayer(tileUrl, { opacity: 0.75, zIndex: 200 }).addTo(map);
 
   const t = new Date(frame.time * 1000);
   const hh = String(t.getHours()).padStart(2, "0");
@@ -710,7 +646,7 @@ function togglePlay() {
   } else {
     document.getElementById("map-play").textContent = "⏸";
     playTimer = setInterval(() => {
-      const frames = (currentLayerType === "satellite") ? rvSat : rvData;
+      const frames = rvData;
       if (!frames || frames.length === 0) return;
       currentFrameIdx = (currentFrameIdx + 1) % frames.length;
       applyLayer();
