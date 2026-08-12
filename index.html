@@ -448,8 +448,8 @@ async function load() {
         <div class="section-title">
           <span>강수/기온/습도 예측 (24시간)</span>
           <div class="chart-legend">
-            <span><span class="dot" style="background:#3498db"></span>강수확률(%)</span>
             <span><span class="dot" style="background:#e74c3c"></span>기온(°C)</span>
+            <span><span class="dot" style="background:#3498db"></span>강수확률(%)</span>
             <span><span class="dot" style="background:#16a34a"></span>습도(%)</span>
           </div>
         </div>
@@ -504,9 +504,9 @@ function drawRainChart(times, temps, rains, hums) {
 
   // 폭에 비례한 스케일 팩터 (기준 800px, 0.6~1.2 범위)
   const sc = Math.max(0.6, Math.min(1.2, cssW / 800));
-  const FONT = Math.max(9, Math.round(10 * sc));  // 축 라벨 폰트
-  const padL = Math.max(28, Math.round(36 * sc));
-  const padR = Math.max(24, Math.round(32 * sc));  // 기온 Y축 라벨(우측) 여유 — "−10°" 등 잘림 방지
+  const FONT = Math.max(8, Math.round(10 * sc));  // 축 라벨 폰트
+  const padL = Math.max(32, Math.round(40 * sc));  // 기온 Y축(좌측) — "−10°" 긴 라벨 여유
+  const padR = Math.max(28, Math.round(34 * sc));  // 확률 Y축(우측) — "100%" 여유
   const padT = Math.max(10, Math.round(12 * sc));
   const padB = Math.max(18, Math.round(22 * sc));
   const w = cssW - padL - padR;
@@ -523,10 +523,9 @@ function drawRainChart(times, temps, rains, hums) {
   const yT = v => padT + h - ((v - yTmin) / (yTmax - yTmin || 1)) * h;
   const yR = v => padT + h - ((v - yRmin) / (yRmax - yRmin)) * h;
 
-  // 그리드 + Y축 라벨 (강수확률/습도 좌, 기온 우)
+  // 그리드 + Y축 라벨 (기온 좌, 강수확률/습도 우)
   ctx.font = FONT + "px sans-serif";
   ctx.fillStyle = "#888";
-  ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   for (let p = 0; p <= 4; p++) {
     const yy = padT + (p / 4) * h;
@@ -534,13 +533,16 @@ function drawRainChart(times, temps, rains, hums) {
     ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL + w, yy); ctx.stroke();
     const rv = Math.round(yRmax - (p / 4) * (yRmax - yRmin));
     const tv = (yTmax - (p / 4) * (yTmax - yTmin)).toFixed(0);
-    ctx.fillStyle = "#3498db";
-    ctx.fillText(rv + "%", padL - 4, yy);
+    // 좌측: 기온 (빨강) — 우측 정렬
     ctx.fillStyle = "#e74c3c";
-    ctx.textAlign = "left";
-    ctx.fillText(tv + "°", padL + w + 4, yy);
     ctx.textAlign = "right";
+    ctx.fillText(tv + "°", padL - 4, yy);
+    // 우측: 확률 (파랑) — 좌측 정렬
+    ctx.fillStyle = "#3498db";
+    ctx.textAlign = "left";
+    ctx.fillText(rv + "%", padL + w + 4, yy);
   }
+  ctx.textAlign = "left";
 
   // 강수확률 영역 채우기
   const grad = ctx.createLinearGradient(0, padT, 0, padT + h);
