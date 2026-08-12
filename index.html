@@ -316,11 +316,16 @@ function formatHour(iso) {
   return (h === 0 ? "0시" : `${h}시`);
 }
 
-// 풍향(각도) → 한글 8방위 (바람이 불어오는 방향 기준)
+// 풍향(각도) → 한글 8방위 + 화살표 (바람이 불어오는 방향 기준)
 function windDir(deg) {
   if (deg == null) return "";
   const dirs = ["북", "북동", "동", "남동", "남", "남서", "서", "북서"];
   return dirs[Math.round(deg / 45) % 8];
+}
+function windArrow(deg) {
+  if (deg == null) return "";
+  const arrows = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"];
+  return arrows[Math.round(deg / 45) % 8];
 }
 
 async function load() {
@@ -346,7 +351,7 @@ async function load() {
           <div class="desc">${c.name} · ${cdesc}</div>
           <div class="temp">${cur.temperature_2m}°C</div>
           <div class="feels">체감 ${cur.apparent_temperature}°C · 강수 ${cur.precipitation ?? 0} mm</div>
-          <div class="meta">습도 ${cur.relative_humidity_2m}% · 풍속 ${cur.wind_speed_10m} km/h · 풍향 ${windDir(cur.wind_direction_10m)} (${cur.wind_direction_10m}°)</div>
+          <div class="meta">습도 ${cur.relative_humidity_2m}% · 풍속 ${cur.wind_speed_10m} km/h · 풍향 ${windArrow(cur.wind_direction_10m)} ${windDir(cur.wind_direction_10m)} (${cur.wind_direction_10m}°)</div>
         </div>
         <div class="emoji">${cemoji}</div>
       </div>`;
@@ -413,7 +418,7 @@ async function load() {
           <div class="temp">${temp}°</div>
           ${rain != null ? `<div class="rain">${rain}%</div>` : ""}
           ${hum != null ? `<div class="hum">💧${hum}%</div>` : ""}
-          ${wd != null ? `<div class="wind">${windDir(wd)}</div>` : ""}
+          ${wd != null ? `<div class="wind">${windArrow(wd)} ${windDir(wd)}</div>` : ""}
         </div>`;
     }
     html += `</div></div>`;
