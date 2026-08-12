@@ -506,7 +506,7 @@ function drawRainChart(times, temps, rains, hums) {
   const sc = Math.max(0.6, Math.min(1.2, cssW / 800));
   const FONT = Math.max(9, Math.round(10 * sc));  // 축 라벨 폰트
   const padL = Math.max(28, Math.round(36 * sc));
-  const padR = Math.max(10, Math.round(12 * sc));
+  const padR = Math.max(24, Math.round(32 * sc));  // 기온 Y축 라벨(우측) 여유 — "−10°" 등 잘림 방지
   const padT = Math.max(10, Math.round(12 * sc));
   const padB = Math.max(18, Math.round(22 * sc));
   const w = cssW - padL - padR;
