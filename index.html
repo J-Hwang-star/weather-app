@@ -95,12 +95,15 @@
   .hourly-wrap {
     margin-bottom: 25px;
     overflow-x: auto;
+    overflow-y: hidden;
     padding-bottom: 5px;
+    -webkit-overflow-scrolling: touch;
   }
   .hourly {
     display: flex;
+    flex-wrap: nowrap;
     gap: 10px;
-    min-width: max-content;
+    width: max-content;
   }
   .hour {
     background: #f7f8fc;
@@ -108,6 +111,7 @@
     padding: 12px 10px;
     text-align: center;
     min-width: 70px;
+    flex: 0 0 70px;
     font-size: 0.85rem;
   }
   .hour .time { font-weight: 600; color: #2c3e50; margin-bottom: 6px; }
@@ -118,13 +122,16 @@
   .hour .wind { color: #64748b; font-size: 0.74rem; margin-top: 1px; }
   .forecast-wrap {
     overflow-x: auto;
+    overflow-y: hidden;
     padding-bottom: 5px;
     margin-bottom: 25px;
+    -webkit-overflow-scrolling: touch;  /* iOS 부드러운 스크롤 */
   }
   .forecast {
     display: flex;
+    flex-wrap: nowrap;       /* 줄바꿈 확실 방지 */
     gap: 10px;
-    min-width: max-content;
+    width: max-content;      /* 내용물 기준 폭 → 부모보다 넓어 스크롤 발생 */
   }
   .day {
     background: #f7f8fc;
@@ -133,6 +140,7 @@
     text-align: center;
     font-size: 0.85rem;
     min-width: 72px;
+    flex: 0 0 72px;          /* 축소 금지, 고정 폭 */
   }
   .day .date { font-weight: 600; color: #2c3e50; margin-bottom: 6px; }
   .day .emoji { font-size: 1.8rem; margin: 4px 0; }
