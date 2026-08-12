@@ -21,6 +21,16 @@
     padding: 30px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
   }
+  @media (max-width: 600px) {
+    body { padding: 10px; }
+    .container { padding: 18px 14px; border-radius: 14px; }
+    h1 { font-size: 1.35rem; margin-bottom: 14px; }
+    .current { padding: 18px; }
+    .current .temp { font-size: 2.4rem; }
+    .current .emoji { font-size: 3rem; }
+    .controls { gap: 8px; margin-bottom: 18px; }
+    input[type="text"], button { padding: 10px 12px; font-size: 0.95rem; }
+  }
   h1 { font-size: 1.6rem; margin-bottom: 20px; color: #2c3e50; }
   .controls {
     display: flex;
@@ -137,7 +147,8 @@
     margin-right: 4px;
     vertical-align: middle;
   }
-  #rainChart { width: 100%; height: 180px; background: #f7f8fc; border-radius: 12px; }
+  #rainChart { display:block; width: 100%; height: 180px; background: #f7f8fc; border-radius: 12px; }
+  @media (max-width: 600px) { #rainChart { height: 140px; } }
   .map-section { margin-bottom: 25px; }
   .aqi-section { margin-bottom: 25px; }
   .aqi-grid {
@@ -477,18 +488,27 @@ document.getElementById("city").addEventListener("keydown", e => {
 load();
 
 /* ===== 강수/기온/습도 예측 그래프 (Canvas) ===== */
+// 차트 폭/높이/폰트/패딩 비례 스케일링 (모바일 대응)
+let _lastChartData = null;  // resize 시 재렌더링용 데이터 캐시
 function drawRainChart(times, temps, rains, hums) {
   const canvas = document.getElementById("rainChart");
   if (!canvas) return;
-  const dpr = window.devicePixelRatio || 1;
+  _lastChartData = { times, temps, rains, hums };  // 캐시 저장
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const cssW = canvas.clientWidth, cssH = canvas.clientHeight;
-  canvas.width = cssW * dpr;
-  canvas.height = cssH * dpr;
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
   const ctx = canvas.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cssW, cssH);
 
-  const padL = 36, padR = 12, padT = 12, padB = 22;
+  // 폭에 비례한 스케일 팩터 (기준 800px, 0.6~1.2 범위)
+  const sc = Math.max(0.6, Math.min(1.2, cssW / 800));
+  const FONT = Math.max(9, Math.round(10 * sc));  // 축 라벨 폰트
+  const padL = Math.max(28, Math.round(36 * sc));
+  const padR = Math.max(10, Math.round(12 * sc));
+  const padT = Math.max(10, Math.round(12 * sc));
+  const padB = Math.max(18, Math.round(22 * sc));
   const w = cssW - padL - padR;
   const h = cssH - padT - padB;
   const n = times.length;
@@ -504,7 +524,7 @@ function drawRainChart(times, temps, rains, hums) {
   const yR = v => padT + h - ((v - yRmin) / (yRmax - yRmin)) * h;
 
   // 그리드 + Y축 라벨 (강수확률/습도 좌, 기온 우)
-  ctx.font = "10px sans-serif";
+  ctx.font = FONT + "px sans-serif";
   ctx.fillStyle = "#888";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
@@ -543,7 +563,7 @@ function drawRainChart(times, temps, rains, hums) {
   }
   ctx.stroke();
 
-  // 습도 선 (강습확률과 같은 0~100% 축 사용)
+  // 습도 선 (강수확률과 같은 0~100% 축 사용)
   if (hums && hums.length === n) {
     ctx.strokeStyle = "#16a34a";
     ctx.lineWidth = 2;
@@ -557,9 +577,10 @@ function drawRainChart(times, temps, rains, hums) {
     ctx.setLineDash([]);
     // 습도 점
     ctx.fillStyle = "#16a34a";
+    const dotR = Math.max(1.2, 1.4 * sc);
     for (let i = 0; i < n; i++) {
       ctx.beginPath();
-      ctx.arc(x(i), yR(hums[i]), 1.4, 0, Math.PI * 2);
+      ctx.arc(x(i), yR(hums[i]), dotR, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -575,32 +596,33 @@ function drawRainChart(times, temps, rains, hums) {
   ctx.stroke();
   // 기온 점
   ctx.fillStyle = "#e74c3c";
+  const tDotR = Math.max(1.4, 1.6 * sc);
   for (let i = 0; i < n; i++) {
     ctx.beginPath();
-    ctx.arc(x(i), yT(temps[i]), 1.6, 0, Math.PI * 2);
+    ctx.arc(x(i), yT(temps[i]), tDotR, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // X축 라벨 (3시간 간격)
+  // X축 라벨 — 폭이 좁으면 6시간 간격, 넓으면 3시간 간격
   ctx.fillStyle = "#888";
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
+  const xStep = (cssW < 500) ? 6 : 3;  // 모바일 6시간, 데스크톱 3시간
   for (let i = 0; i < n; i++) {
     const d = new Date(times[i]);
-    if (d.getHours() % 3 === 0) {
+    if (d.getHours() % xStep === 0) {
       const label = (d.getHours() === 0 ? "0시" : d.getHours() + "시");
       ctx.fillText(label, x(i), padT + h + 4);
     }
   }
 }
 
+// resize 디바운스 — 차트 재렌더링 (데이터 재사용, API 호출 없음)
+let _rzT = null;
 window.addEventListener("resize", () => {
-  // 차트가 있으면 다시 그림
-  const canvas = document.getElementById("rainChart");
-  if (canvas && canvas.clientWidth) {
-    // 데이터는 다시 로드하기보다 현재 가로 크기에 맞춰 재렌더링
-    // 간단히 load() 재호출은 데이터 낭비 → 여기선 생략
-  }
+  if (!_lastChartData) return;
+  if (_rzT) clearTimeout(_rzT);
+  _rzT = setTimeout(() => drawRainChart(_lastChartData.times, _lastChartData.temps, _lastChartData.rains, _lastChartData.hums), 120);
 });
 
 /* ===== Leaflet + RainViewer 위성/레이더 지도 ===== */
