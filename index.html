@@ -116,13 +116,23 @@
   .hour .rain { color: #3498db; font-size: 0.78rem; margin-top: 2px; }
   .hour .hum { color: #16a34a; font-size: 0.78rem; margin-top: 1px; }
   .hour .wind { color: #64748b; font-size: 0.74rem; margin-top: 1px; }
-  .forecast { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+  .forecast-wrap {
+    overflow-x: auto;
+    padding-bottom: 5px;
+    margin-bottom: 25px;
+  }
+  .forecast {
+    display: flex;
+    gap: 10px;
+    min-width: max-content;
+  }
   .day {
     background: #f7f8fc;
     border-radius: 12px;
     padding: 12px 6px;
     text-align: center;
     font-size: 0.85rem;
+    min-width: 72px;
   }
   .day .date { font-weight: 600; color: #2c3e50; margin-bottom: 6px; }
   .day .emoji { font-size: 1.8rem; margin: 4px 0; }
@@ -211,7 +221,6 @@
   }
   .leaflet-container { background: #aadaff; }
   @media (max-width: 600px) {
-    .forecast { grid-template-columns: repeat(4, 1fr); }
     #map { height: 320px; }
   }
 </style>
@@ -457,7 +466,7 @@ async function load() {
       </div>`;
 
     // 일주일(7일) 예보
-    html += `<div class="section-title">일주일 예보</div><div class="forecast">`;
+    html += `<div class="section-title">일주일 예보</div><div class="forecast-wrap"><div class="forecast">`;
     w.daily.time.forEach((t, i) => {
       const [desc, emoji] = WMO[w.daily.weather_code[i]] || ["알 수 없음", "❓"];
       const rain = w.daily.precipitation_probability_max?.[i] ?? 0;
@@ -473,7 +482,7 @@ async function load() {
           <div class="rain">${rain}%</div>
         </div>`;
     });
-    html += "</div>";
+    html += "</div></div>";
     content.innerHTML = html;
     drawRainChart(chartHours, chartTemp, chartRain, chartHum);
   } catch (e) {
