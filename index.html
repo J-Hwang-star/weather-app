@@ -473,7 +473,7 @@ async function load() {
       </div>`;
 
     // 10일 예보 (내일부터, 오늘 제외)
-    html += `<div class="section-title">10일 예보 (내일부터)</div><div class="forecast-wrap"><div class="forecast">`;
+    html += `<div class="section-title">10일 예보</div><div class="forecast-wrap"><div class="forecast">`;
     for (let i = 1; i <= 10 && i < w.daily.time.length; i++) {
       const t = w.daily.time[i];
       const [desc, emoji] = WMO[w.daily.weather_code[i]] || ["알 수 없음", "❓"];
