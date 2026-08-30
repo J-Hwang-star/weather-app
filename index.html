@@ -447,7 +447,7 @@ async function load() {
           <div class="emoji">${emoji}</div>
           <div class="temp">${temp}°</div>
           ${rain != null ? `<div class="rain">${rain}%</div>` : ""}
-          ${precip != null && precip > 0 ? `<div class="precip">🌧️${precip}mm</div>` : ""}
+          ${precip != null ? `<div class="precip">${precip}mm</div>` : ""}
           ${hum != null ? `<div class="hum">💧${hum}%</div>` : ""}
           ${wd != null ? `<div class="wind">${windArrow(wd)} ${windDir(wd)}</div>` : ""}
         </div>`;
