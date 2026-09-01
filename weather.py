@@ -28,11 +28,12 @@ def get_weather(lat, lon):
         f"https://api.open-meteo.com/v1/forecast?"
         f"latitude={lat}&longitude={lon}"
         f"&current=temperature_2m,relative_humidity_2m,apparent_temperature,"
-        f"weather_code,wind_speed_10m,precipitation"
-        f"&hourly=temperature_2m,precipitation_probability,weather_code"
+        f"weather_code,wind_speed_10m,wind_direction_10m,precipitation"
+        f"&hourly=weather_code,temperature_2m,relative_humidity_2m,"
+        f"precipitation_probability,precipitation,wind_direction_10m"
         f"&daily=weather_code,temperature_2m_max,temperature_2m_min,"
         f"sunrise,sunset,precipitation_probability_max"
-        f"&timezone=Asia/Seoul&forecast_days=7"
+        f"&timezone=Asia/Seoul&forecast_days=11"
     )
     with urllib.request.urlopen(url, timeout=10) as r:
         return json.loads(r.read())
@@ -57,6 +58,17 @@ CITY_MAP = {
 }
 
 WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
+
+# 각도 -> 한글 8방위 (불어오는 방향 기준)
+def wind_dir(deg):
+    dirs = ["북", "북동", "동", "남동", "남", "남서", "서", "북서"]
+    return dirs[int((deg + 22.5) // 45) % 8]
+
+
+# 화살표: 불어가는 방향(불어오는 반대) 가리킴 — 북풍=↓, 동풍=←
+def wind_arrow(deg):
+    arrows = ["↓", "↙", "←", "↖", "↑", "↗", "→", "↘"]
+    return arrows[int(((deg + 180) % 360 + 22.5) // 45) % 8]
 
 
 def fmt_time(iso):
@@ -90,14 +102,17 @@ def main():
     print(f"날씨: {desc}")
     print(f"습도: {c['relative_humidity_2m']}%")
     print(f"풍속: {c['wind_speed_10m']} km/h")
+    wd = c.get("wind_direction_10m")
+    if wd is not None:
+        print(f"풍향: {wind_arrow(wd)} {wind_dir(wd)} ({int(wd)}°)")
     print(f"강수량: {c.get('precipitation', 0)} mm")
 
     # 오늘 일출/일몰
     d = w["daily"]
     print(f"일출: {fmt_time(d['sunrise'][0])} / 일몰: {fmt_time(d['sunset'][0])}")
 
-    # 시간별 예보 (앞으로 12시간)
-    print("\n=== 시간별 예보 (12시간) ===")
+    # 시간별 예보 (앞으로 24시간)
+    print("\n=== 시간별 예보 (24시간) ===")
     hourly = w["hourly"]
     # 현재 시간 이후부터
     now_t = c["time"]
@@ -113,14 +128,26 @@ def main():
             label = t[11:16]
         h_desc = WMO.get(hourly["weather_code"][i], "-")
         rain = hourly["precipitation_probability"][i] if "precipitation_probability" in hourly else 0
-        print(f"  {label:>5} | {hourly['temperature_2m'][i]:>5.1f}°C | 강수 {rain:>2}% | {h_desc}")
+        precip = hourly["precipitation"][i] if "precipitation" in hourly else None
+        hum = hourly["relative_humidity_2m"][i] if "relative_humidity_2m" in hourly else None
+        wd = hourly["wind_direction_10m"][i] if "wind_direction_10m" in hourly else None
+        line = f"  {label:>5} | {hourly['temperature_2m'][i]:>5.1f}°C | 강수 {rain:>2}%"
+        if precip is not None:
+            line += f" | {precip}mm"
+        if hum is not None:
+            line += f" | 습도 {hum}%"
+        if wd is not None:
+            line += f" | {wind_arrow(wd)} {wind_dir(wd)}"
+        line += f" | {h_desc}"
+        print(line)
         count += 1
-        if count >= 12:
+        if count >= 24:
             break
 
-    # 일주일 예보
-    print("\n=== 일주일 예보 ===")
-    for i, t in enumerate(d["time"]):
+    # 10일 예보 (내일부터)
+    print("\n=== 10일 예보 ===")
+    for i in range(1, 11):
+        t = d["time"][i]
         d_desc = WMO.get(d["weather_code"][i], "-")
         rain = d["precipitation_probability_max"][i] if "precipitation_probability_max" in d else 0
         print(f"  {fmt_date(t)} | {d['temperature_2m_max'][i]:>5.1f}/{d['temperature_2m_min'][i]:>4.1f}°C | 강수 {rain:>2}% | {d_desc}")
