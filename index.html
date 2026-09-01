@@ -119,6 +119,7 @@
   .hour .temp { color: #555; font-weight: 600; }
   .hour .rain { color: #3498db; font-size: 0.78rem; margin-top: 2px; }
   .hour .precip { color: #2563eb; font-size: 0.76rem; margin-top: 1px; font-weight: 600; }
+  .hour .precip.zero { color: #9ca3af; font-weight: 400; }
   .hour .hum { color: #16a34a; font-size: 0.78rem; margin-top: 1px; }
   .hour .wind { color: #64748b; font-size: 0.74rem; margin-top: 1px; }
   .forecast-wrap {
@@ -447,7 +448,7 @@ async function load() {
           <div class="emoji">${emoji}</div>
           <div class="temp">${temp}°</div>
           ${rain != null ? `<div class="rain">${rain}%</div>` : ""}
-          ${precip != null ? `<div class="precip">${precip}mm</div>` : ""}
+          ${precip != null ? `<div class="precip${precip > 0 ? "" : " zero"}">${precip}mm</div>` : ""}
           ${hum != null ? `<div class="hum">💧${hum}%</div>` : ""}
           ${wd != null ? `<div class="wind">${windArrow(wd)} ${windDir(wd)}</div>` : ""}
         </div>`;
