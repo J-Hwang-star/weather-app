@@ -103,18 +103,18 @@
   }
   .hourly {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 10px;
-    width: max-content;
+    width: 100%;
   }
   .hour {
     background: #f7f8fc;
     border-radius: 12px;
-    padding: 12px 10px;
+    padding: 12px 6px;
     text-align: center;
-    min-width: 70px;
-    flex: 0 0 70px;
     font-size: 0.85rem;
+    flex: 1 1 0;
+    min-width: 0;
   }
   .hour .time { font-weight: 600; color: #2c3e50; margin-bottom: 6px; }
   .hour .emoji { font-size: 1.8rem; margin: 4px 0; }
@@ -144,6 +144,12 @@
   @media (max-width: 600px) {
     .forecast { width: 100%; }
     .day { flex: 1 1 0; min-width: 0; }  /* 모바일: 7일 화면 폭 균등 분할 */
+  }
+  /* 24시간 예보: 한 줄에 8개씩 3줄 (10일 예보와 비슷한 카드 폭) */
+  .hourly .hour:nth-child(n+9) { margin-top: 0; }
+  @media (max-width: 600px) {
+    .hourly { gap: 6px; }
+    .hourly .hour { padding: 10px 4px; }
   }
   .day .date { font-weight: 600; color: #2c3e50; margin-bottom: 6px; }
   .day .emoji { font-size: 1.8rem; margin: 4px 0; }
