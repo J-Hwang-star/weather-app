@@ -28,7 +28,9 @@
     .current { padding: 18px; }
     .current .temp { font-size: 2.4rem; }
     .current .emoji { font-size: 3rem; }
-    .controls { gap: 8px; margin-bottom: 18px; }
+    .controls { gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+    .search-box { flex: 1 1 100%; }
+    .controls > button { flex: 1 1 auto; }
     input[type="text"], button { padding: 10px 12px; font-size: 0.95rem; }
   }
   h1 { font-size: 1.6rem; margin-bottom: 20px; color: #2c3e50; }
@@ -732,12 +734,12 @@ function renderWeather(w, aq) {
       <div class="day" data-idx="${i}">
         <div class="date">${formatDate(t)}</div>
         <div class="emoji">${emoji}</div>
-        <div class="desc">${desc}</div>
         <div class="temps">
           <span class="high">${w.daily.temperature_2m_max[i]}°</span>
           <span class="low">${w.daily.temperature_2m_min[i]}°</span>
         </div>
         <div class="rain">${rain}%</div>
+        <div class="desc">${desc}</div>
       </div>`;
   }
   html += "</div></div>";
