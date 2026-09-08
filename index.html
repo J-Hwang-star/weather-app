@@ -709,7 +709,8 @@ function renderWeather(w, aq) {
     // 미세먼지 (시간 매칭, aqHourlyMap은 대기질 섹션에서 채워짐)
     const pm = aqHourlyMap[w.hourly.time[i]];
     const pmHtml = pm && pm.pm10 != null
-      ? `<div class="pm-line">PM <span style="color:${pmGrade(pm.pm10, "pm10")[1]}">${Math.round(pm.pm10)}</span> / 초 <span style="color:${pm.pm25 != null ? pmGrade(pm.pm25, "pm25")[1] : "#9ca3af"}">${pm.pm25 != null ? Math.round(pm.pm25) : "-"}</span></div>`
+      ? `<div class="pm-line">PM <span style="color:${pmGrade(pm.pm10, "pm10")[1]}">${Math.round(pm.pm10)}</span></div>` +
+        `<div class="pm-line">초 <span style="color:${pm.pm25 != null ? pmGrade(pm.pm25, "pm25")[1] : "#9ca3af"}">${pm.pm25 != null ? Math.round(pm.pm25) : "-"}</span></div>`
       : "";
     html += `
       <div class="hour">
