@@ -12,7 +12,16 @@
     min-height: 100vh;
     padding: 20px;
     color: #333;
+    transition: background 0.6s ease;
   }
+
+  /* ===== 날씨 연동 테마 ===== */
+  body.theme-clear  { background: linear-gradient(160deg, #4facfe 0%, #76d2f7 55%, #b8e6fb 100%); }
+  body.theme-cloudy { background: linear-gradient(160deg, #8e9eab 0%, #a8b8c8 55%, #cbd5df 100%); }
+  body.theme-rain   { background: linear-gradient(160deg, #536976 0%, #3d4f66 55%, #292e49 100%); }
+  body.theme-snow   { background: linear-gradient(160deg, #c9d6e8 0%, #dde7f3 55%, #eef3f8 100%); }
+  body.theme-night  { background: linear-gradient(160deg, #0f172a 0%, #1a2440 55%, #1e2a4a 100%); }
+
   .container {
     max-width: 1100px;
     margin: 0 auto;
@@ -20,6 +29,52 @@
     border-radius: 20px;
     padding: 30px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    transition: background 0.6s ease, border-color 0.6s ease, box-shadow 0.6s ease;
+  }
+  /* 유리 패널: 컨테이너 한 겹에만 blur 적용 (모바일 렌더 비용 제한) */
+  body.theme-clear .container,
+  body.theme-cloudy .container,
+  body.theme-rain .container,
+  body.theme-snow .container,
+  body.theme-night .container {
+    background: rgba(255,255,255,0.78);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid rgba(255,255,255,0.55);
+  }
+  body.theme-night .container {
+    background: rgba(22, 30, 52, 0.72);
+    border-color: rgba(160, 180, 230, 0.22);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+    color: #dbe3f0;
+  }
+  body.theme-night h1,
+  body.theme-night .section-title,
+  body.theme-night .current .desc { color: #e8eefb; }
+  body.theme-night .day,
+  body.theme-night .hour,
+  body.theme-night .sun-bar,
+  body.theme-night #rainChart,
+  body.theme-night .modal-summary { background: rgba(255,255,255,0.07); }
+  body.theme-night .day .date,
+  body.theme-night .hour .time,
+  body.theme-night .sun-bar .value { color: #e8eefb; }
+  body.theme-night .sun-bar { color: #b9c4d8; }
+  body.theme-night .sun-bar .label,
+  body.theme-night .hour .temp,
+  body.theme-night .day .temps { color: #a9b6cd; }
+  body.theme-night input[type="text"] {
+    background: rgba(255,255,255,0.1);
+    color: #e8eefb;
+    border-color: rgba(160,180,230,0.28);
+  }
+  body.theme-night .fav-chip {
+    background: rgba(255,255,255,0.1);
+    color: #dbe3f0;
+    border-color: rgba(160,180,230,0.28);
+  }
+  body.theme-night .current {
+    background: linear-gradient(135deg, #4653a8, #5b3d84);
   }
   @media (max-width: 600px) {
     body { padding: 10px; }
@@ -376,6 +431,38 @@ const WMO = {
   95: ["천둥번개", "⛈️"], 96: ["천둥번개+우박", "⛈️"], 99: ["심한 천둥번개+우박", "⛈️"],
 };
 
+// ===== 날씨 연동 테마 =====
+const THEME_BY_CODE = ((() => {
+  const m = {};
+  [0, 1].forEach(c => m[c] = "clear");
+  [2, 3, 45, 48].forEach(c => m[c] = "cloudy");
+  [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].forEach(c => m[c] = "rain");
+  [71, 73, 75].forEach(c => m[c] = "snow");
+  return m;
+})());
+
+// 현지 시각이 일출 전이거나 일몰 후면 밤으로 판정
+function isNightNow(sunriseIso, sunsetIso) {
+  if (!sunriseIso || !sunsetIso) return false;
+  const now = Date.now();
+  return now < new Date(sunriseIso).getTime() || now > new Date(sunsetIso).getTime();
+}
+
+function themeForCode(code) {
+  return THEME_BY_CODE[code] || "cloudy";
+}
+
+function applyTheme(theme) {
+  document.body.className = "theme-" + theme;
+}
+
+function themeFromWeather(w) {
+  const sr = w?.daily?.sunrise?.[0];
+  const ss = w?.daily?.sunset?.[0];
+  if (isNightNow(sr, ss)) return "night";
+  return themeForCode(w?.current?.weather_code);
+}
+
 // 한국어 도시명 -> 영문 매핑 (Geocoding API가 한국어를 잘 못 찾을 때 대비)
 const CITY_MAP = {
   "서울": "Seoul", "부산": "Busan", "대구": "Daegu", "인천": "Incheon",
@@ -626,6 +713,7 @@ function renderWeather(w, aq) {
   const cur = w.current;
   const [cdesc, cemoji] = WMO[cur.weather_code] || ["알 수 없음", "❓"];
   const cityName = currentPlace ? currentPlace.name : "";
+  applyTheme(themeFromWeather(w));
   // 미세먼지 시간별 예보 맵 (ISO 시간 → {pm10, pm25})
   let aqHourlyMap = {};
 
